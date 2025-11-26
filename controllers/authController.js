@@ -28,6 +28,17 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signupPatient = catchAsync(async (req, res, next) => {
+  // Validate password confirmation
+  if (!req.body.password || !req.body.passwordConfirm) {
+    return next(
+      new AppError('Please provide password and password confirmation', 400)
+    );
+  }
+
+  if (req.body.password !== req.body.passwordConfirm) {
+    return next(new AppError('Passwords do not match!', 400));
+  }
+
   const newPatient = await User.create({
     name: req.body.name,
     phone: req.body.phone,
@@ -43,6 +54,17 @@ exports.signupPatient = catchAsync(async (req, res, next) => {
 });
 
 exports.signupDoctor = catchAsync(async (req, res, next) => {
+  // Validate password confirmation
+  if (!req.body.password || !req.body.passwordConfirm) {
+    return next(
+      new AppError('Please provide password and password confirmation', 400)
+    );
+  }
+
+  if (req.body.password !== req.body.passwordConfirm) {
+    return next(new AppError('Passwords do not match!', 400));
+  }
+
   const newDoctor = await Doctor.create({
     fullName: req.body.fullName,
     clinicName: req.body.clinicName,
@@ -167,6 +189,17 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 });
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
+  // Validate password confirmation
+  if (!req.body.password || !req.body.passwordConfirm) {
+    return next(
+      new AppError('Please provide password and password confirmation', 400)
+    );
+  }
+
+  if (req.body.password !== req.body.passwordConfirm) {
+    return next(new AppError('Passwords do not match!', 400));
+  }
+
   const hashedToken = crypto
     .createHash('sha256')
     .update(req.params.token)
@@ -186,6 +219,17 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
   const { passwordCurrent, password, passwordConfirm } = req.body;
+
+  // Validate new password confirmation
+  if (!password || !passwordConfirm) {
+    return next(
+      new AppError('Please provide new password and password confirmation', 400)
+    );
+  }
+
+  if (password !== passwordConfirm) {
+    return next(new AppError('Passwords do not match!', 400));
+  }
 
   let user;
   if (req.user.role === 'doctor') {

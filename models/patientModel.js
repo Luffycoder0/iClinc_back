@@ -40,7 +40,6 @@ const patientSchema = new mongoose.Schema({
   },
   passwordConfirm: {
     type: String,
-    required: [true, 'Please confirm your password'],
     validate: {
       validator: function (el) {
         return el === this.password;
@@ -63,7 +62,6 @@ const patientSchema = new mongoose.Schema({
     type: String,
     default: 'patient'
   },
-
   doctors: [
     {
       type: mongoose.Schema.Types.ObjectId,

@@ -100,7 +100,7 @@ exports.deleteMe = catchAsync(async (req, res, next) => {
   });
 });
 
-// Assign doctor to patient (Many-to-Many)
+// Assign doctor to patient (Many-to-Many) - FIXED VERSION
 exports.addDoctorToPatient = catchAsync(async (req, res, next) => {
   const { doctorId } = req.body;
 
@@ -115,20 +115,30 @@ exports.addDoctorToPatient = catchAsync(async (req, res, next) => {
     return next(new AppError('Doctor already assigned to this patient', 400));
   }
 
-  patient.doctors.push(doctorId);
-  doctor.patients.push(patient._id);
+  // Use updateOne to bypass validation
+  await Patient.updateOne(
+    { _id: req.user.id },
+    { $addToSet: { doctors: doctorId } }
+  );
 
-  await patient.save({ validateBeforeSave: false });
-  await doctor.save({ validateBeforeSave: false });
+  await Doctor.updateOne(
+    { _id: doctorId },
+    { $addToSet: { patients: patient._id } }
+  );
+
+  // Fetch updated patient
+  const updatedPatient = await Patient.findById(req.user.id).populate(
+    'doctors'
+  );
 
   res.status(200).json({
     status: 'success',
     message: 'Doctor added successfully',
-    data: { patient }
+    data: { patient: updatedPatient }
   });
 });
 
-// Remove doctor from patient
+// Remove doctor from patient - FIXED VERSION
 exports.removeDoctorFromPatient = catchAsync(async (req, res, next) => {
   const { doctorId } = req.body;
 
@@ -138,13 +148,16 @@ exports.removeDoctorFromPatient = catchAsync(async (req, res, next) => {
   if (!doctor || !patient)
     return next(new AppError('Doctor or patient not found', 404));
 
-  patient.doctors = patient.doctors.filter((id) => id.toString() !== doctorId);
-  doctor.patients = doctor.patients.filter(
-    (id) => id.toString() !== patient._id.toString()
+  // Use updateOne to bypass validation
+  await Patient.updateOne(
+    { _id: req.user.id },
+    { $pull: { doctors: doctorId } }
   );
 
-  await patient.save();
-  await doctor.save();
+  await Doctor.updateOne(
+    { _id: doctorId },
+    { $pull: { patients: patient._id } }
+  );
 
   res.status(200).json({
     status: 'success',
