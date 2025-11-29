@@ -28,7 +28,7 @@ exports.bookAppointment = catchAsync(async (req, res, next) => {
     patient: req.user.id,
     date,
     time,
-    status: 'confirmed'
+    status: 'pending'
   });
 
   res.status(201).json({
