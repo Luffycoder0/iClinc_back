@@ -12,7 +12,6 @@ exports.bookAppointment = catchAsync(async (req, res, next) => {
   const doctor = await Doctor.findById(doctorId);
   if (!doctor) return next(new AppError('Doctor not found', 404));
 
-  // Subscriptoin Check
   const hasAccess = await Subscription.canAccess(req.user.id, doctorId);
 
   if (!hasAccess) {
