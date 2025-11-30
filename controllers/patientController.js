@@ -1,5 +1,6 @@
 const Patient = require('../models/patientModel');
 const Doctor = require('../models/doctorModel');
+const Subscription = require('../models/subscriptionModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
@@ -186,18 +187,34 @@ exports.removeDoctorFromPatient = catchAsync(async (req, res, next) => {
   });
 });
 
-// Get all doctors for a specific patient
 exports.getMyDoctors = catchAsync(async (req, res, next) => {
-  const patient = await Patient.findById(req.user._id).populate(
-    'doctors',
-    'fullName clinicName email phone'
-  );
+  const activeSubscriptions = await Subscription.find({
+    patient: req.user._id,
+    status: 'active',
+    currentPeriodEnd: { $gt: Date.now() }
+  }).select('doctor');
 
-  if (!patient) return next(new AppError('Patient not found', 404));
+  // Extract doctor IDs from active subscriptions
+  const doctorIds = activeSubscriptions.map((sub) => sub.doctor);
+
+  if (doctorIds.length === 0) {
+    return res.status(200).json({
+      status: 'success',
+      results: 0,
+      data: { doctors: [] }
+    });
+  }
+
+  // Get full doctor details for subscribed doctors
+  const doctors = await Doctor.find({
+    _id: { $in: doctorIds }
+  }).select(
+    'fullName clinicName email phone photo specialization specialty active'
+  );
 
   res.status(200).json({
     status: 'success',
-    results: patient.doctors.length,
-    data: { doctors: patient.doctors }
+    results: doctors.length,
+    data: { doctors }
   });
 });
