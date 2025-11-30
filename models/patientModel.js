@@ -37,6 +37,7 @@ const patientSchema = new mongoose.Schema(
     dateOfBirth: {
       type: Date
     },
+    // Profile information fields
     aboutMe: {
       type: String
     },
