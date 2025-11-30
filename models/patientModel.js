@@ -34,6 +34,34 @@ const patientSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please provide your address']
     },
+    dateOfBirth: {
+      type: Date
+    },
+    aboutMe: {
+      type: String
+    },
+    medicalHistory: {
+      type: String
+    },
+    allergies: {
+      type: String
+    },
+    bloodType: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', '']
+    },
+    emergencyContact: {
+      type: String
+    },
+    insurance: {
+      type: String
+    },
+    photo: {
+      type: String
+    },
+    patientDisease: {
+      type: String
+    },
     password: {
       type: String,
       required: [true, 'Please provide a password'],
@@ -73,7 +101,6 @@ const patientSchema = new mongoose.Schema(
 // Hash password before saving
 patientSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-
   this.password = await bcrypt.hash(this.password, 12);
   this.passwordConfirm = undefined;
   next();
@@ -82,7 +109,6 @@ patientSchema.pre('save', async function (next) {
 // Update passwordChangedAt when password is modified
 patientSchema.pre('save', function (next) {
   if (!this.isModified('password') || this.isNew) return next();
-
   this.passwordChangedAt = Date.now() - 1000;
   next();
 });
@@ -113,6 +139,5 @@ patientSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   return false;
 };
 
-const Patient = mongoose.model('Patient', patientSchema);
-
+const Patient = mongoose.model('Patient', patienتSchema);
 module.exports = Patient;
