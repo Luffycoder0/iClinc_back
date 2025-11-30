@@ -163,8 +163,6 @@ exports.restrictTo =
     next();
   };
 
-// ===== IMPROVED FORGOT PASSWORD =====
-// Directly returns the reset token without email verification
 exports.forgotPassword = catchAsync(async (req, res, next) => {
   // Find user by email
   let user = await User.findOne({ email: req.body.email });
@@ -179,43 +177,84 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     return next(new AppError('No user found with that email', 404));
   }
 
-  // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Hash and save the token
+  // Hash the code and store it
+  const hashedCode = crypto
+    .createHash('sha256')
+    .update(resetCode)
+    .digest('hex');
+
+  user.passwordResetToken = hashedCode;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Your password reset code (valid for 10 minutes)',
+      message: `Your password reset code is: ${resetCode}\n\nIf you didn't request this, please ignore this email.`
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Reset code sent to email!'
+    });
+  } catch (err) {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(new AppError('Error sending email, try again later!', 500));
+  }
+});
+
+exports.verifyResetCode = catchAsync(async (req, res, next) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return next(new AppError('Please provide email and code', 400));
+  }
+
+  const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+
+  // Try to find user in both collections
+  let user = await User.findOne({
+    email,
+    passwordResetToken: hashedCode,
+    passwordResetExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    user = await Doctor.findOne({
+      email,
+      passwordResetToken: hashedCode,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+  }
+
+  if (!user) {
+    return next(new AppError('Invalid or expired code', 400));
+  }
+
+  // Generate a temporary reset token for the next step
+  const resetToken = crypto.randomBytes(32).toString('hex');
   const hashedToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
 
   user.passwordResetToken = hashedToken;
-  user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   await user.save({ validateBeforeSave: false });
 
-  // Optional: Send email with reset link
-  try {
-    const resetURL = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;
-
-    await sendEmail({
-      email: user.email,
-      subject: 'Password Reset Request (valid for 10 minutes)',
-      message: `You requested a password reset. Click this link to reset your password: ${resetURL}\n\nIf you didn't request this, please ignore this email.`
-    });
-  } catch (err) {
-    // Email sending failed, but we still return the token
-    console.error('Email sending failed:', err);
-  }
-
-  // Return the token directly to the frontend
   res.status(200).json({
     status: 'success',
-    message: 'Reset token generated!',
-    resetToken: resetToken
+    message: 'Code verified successfully',
+    resetToken
   });
 });
 
-// ===== RESET PASSWORD WITH TOKEN =====
 exports.resetPassword = catchAsync(async (req, res, next) => {
   if (!req.body.password || !req.body.passwordConfirm) {
     return next(
