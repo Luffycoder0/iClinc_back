@@ -69,13 +69,33 @@ const doctorSchema = new mongoose.Schema({
     type: Number,
     default: 4.5
   },
-
   patients: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Patient'
     }
-  ]
+  ],
+  aboutMe: {
+    type: String,
+    default: ''
+  },
+  specialities: {
+    type: String,
+    enum: ['Neurology', 'Cardiology', 'Dermatology', 'Pediatrics', ''],
+    default: ''
+  },
+  designation: {
+    type: String,
+    default: ''
+  },
+  experience: {
+    type: String,
+    default: ''
+  },
+  education: {
+    type: String,
+    default: ''
+  }
 });
 
 doctorSchema.index({ location: '2dsphere' });

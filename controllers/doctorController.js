@@ -50,7 +50,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
       )
     );
   }
-
+  // Allowed fields
   const filteredBody = filterObj(
     req.body,
     'fullName',
@@ -59,8 +59,31 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     'phone',
     'photo',
     'location',
-    'rate'
+    'rate',
+    'aboutMe',
+    'specialities',
+    'designation',
+    'experience',
+    'education'
   );
+
+  // Validate specialities if provided
+  if (filteredBody.specialities) {
+    const validSpecialities = [
+      'Neurology',
+      'Cardiology',
+      'Dermatology',
+      'Pediatrics'
+    ];
+    if (!validSpecialities.includes(filteredBody.specialities)) {
+      return next(
+        new AppError(
+          `Invalid speciality. Must be one of: ${validSpecialities.join(', ')}`,
+          400
+        )
+      );
+    }
+  }
 
   if (filteredBody.location) {
     if (
@@ -105,7 +128,7 @@ exports.addPatientToDoctor = catchAsync(async (req, res, next) => {
 
   const doctor = await Doctor.findByIdAndUpdate(
     req.user._id,
-    { $addToSet: { patients: patientId } }, // ensures no duplicates
+    { $addToSet: { patients: patientId } },
     { new: true }
   );
 
