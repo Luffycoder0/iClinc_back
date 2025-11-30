@@ -65,15 +65,36 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Allow only name, email, phone, photo, disease
+  // Allow basic info + profile info
   const filteredBody = filterObj(
     req.body,
     'name',
     'email',
     'phone',
     'photo',
-    'patientDisease'
+    'patientDisease',
+    'address',
+    'dateOfBirth',
+    'aboutMe',
+    'medicalHistory',
+    'allergies',
+    'bloodType',
+    'emergencyContact',
+    'insurance'
   );
+
+  // Validate blood type if provided
+  if (filteredBody.bloodType) {
+    const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    if (!validBloodTypes.includes(filteredBody.bloodType)) {
+      return next(
+        new AppError(
+          `Invalid blood type. Must be one of: ${validBloodTypes.join(', ')}`,
+          400
+        )
+      );
+    }
+  }
 
   const updatedPatient = await Patient.findByIdAndUpdate(
     req.user.id,

@@ -29,7 +29,11 @@ const patientSchema = new mongoose.Schema({
     }
   },
   gender: {
-    type: String
+    type: String,
+    enum: ['Male', 'Female']
+  },
+  dateOfBirth: {
+    type: Date
   },
   patientDisease: String,
   password: {
@@ -67,7 +71,32 @@ const patientSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Doctor'
     }
-  ]
+  ],
+  aboutMe: {
+    type: String,
+    default: ''
+  },
+  medicalHistory: {
+    type: String,
+    default: ''
+  },
+  allergies: {
+    type: String,
+    default: ''
+  },
+  bloodType: {
+    type: String,
+    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''],
+    default: ''
+  },
+  emergencyContact: {
+    type: String,
+    default: ''
+  },
+  insurance: {
+    type: String,
+    default: ''
+  }
 });
 
 // Hash password before saving
