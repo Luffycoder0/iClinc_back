@@ -28,7 +28,6 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signupPatient = catchAsync(async (req, res, next) => {
-  // Validate password confirmation
   if (!req.body.password || !req.body.passwordConfirm) {
     return next(
       new AppError('Please provide password and password confirmation', 400)
@@ -54,7 +53,6 @@ exports.signupPatient = catchAsync(async (req, res, next) => {
 });
 
 exports.signupDoctor = catchAsync(async (req, res, next) => {
-  // Validate password confirmation
   if (!req.body.password || !req.body.passwordConfirm) {
     return next(
       new AppError('Please provide password and password confirmation', 400)
@@ -166,20 +164,43 @@ exports.restrictTo =
   };
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
-  if (!user) return next(new AppError('No user found with that email', 404));
-  const resetToken = user.createPasswordResetToken();
+  // Find user by email
+  let user = await User.findOne({ email: req.body.email });
+  let Model = User;
+
+  if (!user) {
+    user = await Doctor.findOne({ email: req.body.email });
+    Model = Doctor;
+  }
+
+  if (!user) {
+    return next(new AppError('No user found with that email', 404));
+  }
+
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Hash the code and store it
+  const hashedCode = crypto
+    .createHash('sha256')
+    .update(resetCode)
+    .digest('hex');
+
+  user.passwordResetToken = hashedCode;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
   await user.save({ validateBeforeSave: false });
-  const resetURL = `${req.protocol}://${req.get('host')}/api/v1/users/resetPassword/${resetToken}`;
+
   try {
     await sendEmail({
       email: user.email,
-      subject: 'Your password reset token',
-      message: `Reset at: ${resetURL}`
+      subject: 'Your password reset code (valid for 10 minutes)',
+      message: `Your password reset code is: ${resetCode}\n\nIf you didn't request this, please ignore this email.`
     });
-    res
-      .status(200)
-      .json({ status: 'success', message: 'Token sent to email!' });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Reset code sent to email!'
+    });
   } catch (err) {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
@@ -188,8 +209,53 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   }
 });
 
+exports.verifyResetCode = catchAsync(async (req, res, next) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return next(new AppError('Please provide email and code', 400));
+  }
+
+  const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+
+  // Try to find user in both collections
+  let user = await User.findOne({
+    email,
+    passwordResetToken: hashedCode,
+    passwordResetExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    user = await Doctor.findOne({
+      email,
+      passwordResetToken: hashedCode,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+  }
+
+  if (!user) {
+    return next(new AppError('Invalid or expired code', 400));
+  }
+
+  // Generate a temporary reset token for the next step
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Code verified successfully',
+    resetToken
+  });
+});
+
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  // Validate password confirmation
   if (!req.body.password || !req.body.passwordConfirm) {
     return next(
       new AppError('Please provide password and password confirmation', 400)
@@ -204,23 +270,37 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     .createHash('sha256')
     .update(req.params.token)
     .digest('hex');
-  const user = await User.findOne({
+
+  // Try User model
+  let user = await User.findOne({
     passwordResetToken: hashedToken,
     passwordResetExpires: { $gt: Date.now() }
   });
-  if (!user) return next(new AppError('Token invalid or expired', 400));
+
+  // If not found, try Doctor model
+  if (!user) {
+    user = await Doctor.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+  }
+
+  if (!user) {
+    return next(new AppError('Token invalid or expired', 400));
+  }
+
   user.password = req.body.password;
   user.passwordConfirm = req.body.passwordConfirm;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();
+
   createSendToken(user, 200, res);
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
   const { passwordCurrent, password, passwordConfirm } = req.body;
 
-  // Validate new password confirmation
   if (!password || !passwordConfirm) {
     return next(
       new AppError('Please provide new password and password confirmation', 400)
