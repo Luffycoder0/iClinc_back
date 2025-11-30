@@ -6,7 +6,6 @@ const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 
 // Utils & Controllers
 const AppError = require('./utils/appError');
@@ -38,47 +37,34 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parser
 app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(cookieParser());
-
-// ===== CORS Configuration (FIXED) =====
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:3001',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  process.env.FRONTEND_URL
-].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // السماح للـ requests بدون origin (مثل Postman, mobile apps, etc.)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        process.env.FRONTEND_URL
+      ].filter(Boolean);
+
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log('CORS blocked origin:', origin);
-        // السماح بأي origin في development
-        if (process.env.NODE_ENV === 'development') {
-          callback(null, true);
-        } else {
-          callback(new Error(`Not allowed by CORS: ${origin}`));
-        }
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie']
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 
-// Handle preflight requests
 app.options('*', cors());
 
 // Data sanitization against NoSQL query injection
