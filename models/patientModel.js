@@ -140,5 +140,7 @@ patientSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   return false;
 };
 
-const Patient = mongoose.model('Patient', patienتSchema);
+// FIXED: Corrected the typo in schema name
+const Patient = mongoose.model('Patient', patientSchema);
+
 module.exports = Patient;
